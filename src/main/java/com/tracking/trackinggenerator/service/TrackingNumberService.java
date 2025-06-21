@@ -4,8 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.tracking.trackinggenerator.exception.TrackingGenerationException;
 
-import jakarta.annotation.PostConstruct;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -25,27 +23,19 @@ public class TrackingNumberService {
     @Value("${server.region}")
     private String region;
 
-    @PostConstruct
-public void checkRedisConnection() {
-    try {
-        String pong = redisTemplate.getConnectionFactory().getConnection().ping();
-        System.out.println("✅ Redis connection OK: " + pong);
-    } catch (Exception e) {
-        System.err.println("❌ Redis connection failed: " + e.getMessage());
-    }
-}
-
     public String generateTrackingNumber(String originCountryId, String destinationCountryId) {
+        log.info(
+                "Received request to generate tracking number for originCountryId : {}, destinationCountryId : {} for region : {}",
+                originCountryId, destinationCountryId, region);
         String key = String.format("tracking:counter:%s", region);
 
         Long counter = redisTemplate.opsForValue().increment(key);
         if (counter == null) {
+            log.error("Unable to increase redis counter");
             throw new TrackingGenerationException("Redis counter increment failed for region: " + region);
-
         }
 
         String paddedCounter = String.format("%010d", counter);
-        log.info("Prefix here {}", prefix);
         String trackingNumber = prefix + originCountryId.toUpperCase() + destinationCountryId.toUpperCase()
                 + region.toUpperCase() + paddedCounter;
 
